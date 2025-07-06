@@ -1,21 +1,45 @@
-# Stage de build: instala dependências e compila o código
-FROM node:18-alpine AS builder
 
-# Instala ferramentas de build, Python e bash (necessários para node-gyp, re2 etc.)
+Resolução do Erro npm ci --silent no Dockerfile
+O log indica que o comando npm ci está falhando porque o projeto não possui um arquivo lock válido ou o package-lock.json está desatualizado em relação ao package.json. Além disso, o Docker está reclamando do uso de ENV para segredos, mas isso não impede o build.
+
+1. Geração e versionamento de package-lock.json
+No seu diretório local whaticket/backend, execute:
+
+bash
+npm install
+Isso criará (ou atualizará) o package-lock.json conforme o seu package.json.
+
+Confirme que lockfileVersion no package-lock.json é ≥ 1 (geralmente gerado pelo npm 8+).
+
+Faça commit e push:
+
+bash
+git add backend/package-lock.json
+git commit -m "chore: adicionar/atualizar package-lock.json"
+git push
+Mantenha no Dockerfile o comando:
+
+text
+RUN npm ci --silent
+Por que?
+npm ci exige um lockfile consistente para instalação determinística das dependências.
+
+2. Alternativa: usar npm install em vez de npm ci
+Se preferir não versionar o package-lock.json, adapte o Dockerfile para usar npm install:
+
+text
+# Stage de build
+FROM node:18-alpine AS builder
 RUN apk add --no-cache python3 make g++ build-base bash
 
 WORKDIR /app
+COPY package.json ./
 
-# Copia definição de dependências (inclui package-lock.json se existir)
-COPY package.json package-lock.json* ./
+# Usa npm install em vez de ci
+RUN npm install --production --silent
 
-# Instala todas as dependências (incluindo devDependencies)
-RUN npm ci --silent
-
-# Copia o restante do código-fonte
 COPY . .
 
-# Executa o build (por exemplo, gera dist/ para TypeScript)
 RUN npm run build
 
 # Stage final: container enxuto para produção
