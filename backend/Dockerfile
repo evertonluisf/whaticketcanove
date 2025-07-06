@@ -1,40 +1,58 @@
-FROM node:18 AS build
+# Stage de build: instala dependências e compila o código
+FROM node:18-alpine AS builder
 
-RUN apt-get update && apt-get install -y wget
+# Instala ferramentas de build, Python e bash (necessários para node-gyp, re2 etc.)
+RUN apk add --no-cache python3 make g++ build-base bash
 
-ENV DOCKERIZE_VERSION v0.6.1
-RUN wget https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
-    && tar -C /usr/local/bin -xzvf dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
-    && rm dockerize-linux-amd64-$DOCKERIZE_VERSION.tar.gz
+WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y wget gnupg \
-    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list' \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-freefont-ttf libxss1 \
-      --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
+# Copia definição de dependências (inclui package-lock.json se existir)
+COPY package.json package-lock.json* ./
 
-ADD https://github.com/Yelp/dumb-init/releases/download/v1.2.1/dumb-init_1.2.1_amd64 /usr/local/bin/dumb-init
-RUN chmod +x /usr/local/bin/dumb-init
+# Instala todas as dependências (incluindo devDependencies)
+RUN npm ci --silent
 
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD true
-
-WORKDIR /usr/src/app
-COPY package*.json ./
-RUN npm install
-
+# Copia o restante do código-fonte
 COPY . .
+
+# Executa o build (por exemplo, gera dist/ para TypeScript)
 RUN npm run build
 
-ENV NODE_ENV=production
-ENV PORT=3000
-ENV CHROME_BIN=google-chrome-stable
+# Stage final: container enxuto para produção
+FROM node:18-alpine
 
+# Instala apenas bash (opcional)
+RUN apk add --no-cache bash
+
+WORKDIR /app
+
+# Copia artefatos do build
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+
+# Variáveis de ambiente no formato KEY=VALUE
+ENV NODE_ENV=production \
+    PORT=3100 \
+    BACKEND_URL=https://api-whaticket.efettivagestao.com.br \
+    FRONTEND_URL=https://whaticket.efettivagestao.com.br \
+    DB_HOST=automacao_whaticket-banco \
+    DB_PORT=5432 \
+    DB_DIALECT=postgres \
+    DB_NAME=whaticket-db \
+    DB_USER=whaticket_user \
+    DB_PASS=whaticket_Senha125 \
+    JWT_SECRET=jej98msb89ervrj8bjsr9dfjd \
+    JWT_REFRESH_SECRET=kijv89wb4jg89jrgjw589gmiv9j \
+    LOG_LEVEL=info \
+    MAX_FILE_SIZE=20000000
+
+# Expondo porta para o Easypanel
 EXPOSE 3100
 
-ENTRYPOINT ["dumb-init", "--"]
-CMD dockerize -wait tcp://${DB_HOST}:3306 \
-  && npx sequelize db:migrate \
-  && node dist/server.js
+# Healthcheck opcional
+HEALTHCHECK --interval=30s --timeout=3s \
+  CMD wget --quiet --spider http://localhost:3100/health || exit 1
+
+# Comando de inicialização (formato JSON recomendado)
+CMD ["node", "dist/server.js"]
