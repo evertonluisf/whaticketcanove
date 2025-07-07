@@ -49,8 +49,12 @@ const UpdateWhatsAppService = async ({
   try {
     await schema.validate({ name, status, isDefault });
   } catch (err) {
+  if (err instanceof Error) {
     throw new AppError(err.message);
   }
+  throw new AppError("Erro de validação desconhecido.");
+  }
+
 
   if (queueIds.length > 1 && !greetingMessage) {
     throw new AppError("ERR_WAPP_GREETING_REQUIRED");
