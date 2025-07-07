@@ -32,7 +32,7 @@ RUN apk add --no-cache \
   bash
 
 # Variáveis de ambiente exigidas pelo Puppeteer
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV NODE_OPTIONS="--no-sandbox"
 
