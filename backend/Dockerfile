@@ -55,21 +55,6 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
-# Variáveis de ambiente no formato KEY=VALUE
-ENV NODE_ENV=production \
-    PORT=3100 \
-    BACKEND_URL=https://api-whaticket.efettivagestao.com.br \
-    FRONTEND_URL=https://whaticket.efettivagestao.com.br \
-    DB_HOST=automacao_whaticket-banco \
-    DB_PORT=5432 \
-    DB_DIALECT=postgres \
-    DB_NAME=whaticket-db \
-    DB_USER=whaticket_user \
-    DB_PASS=whaticket_Senha125 \
-    JWT_SECRET=jej98msb89ervrj8bjsr9dfjd \
-    JWT_REFRESH_SECRET=kijv89wb4jg89jrgjw589gmiv9j \
-    LOG_LEVEL=info \
-    MAX_FILE_SIZE=20000000
 
 # Expondo porta para o Easypanel
 EXPOSE 3100
