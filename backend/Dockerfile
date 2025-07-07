@@ -1,67 +1,43 @@
-
-Resolução do Erro npm ci --silent no Dockerfile
-O log indica que o comando npm ci está falhando porque o projeto não possui um arquivo lock válido ou o package-lock.json está desatualizado em relação ao package.json. Além disso, o Docker está reclamando do uso de ENV para segredos, mas isso não impede o build.
-
-1. Geração e versionamento de package-lock.json
-No seu diretório local whaticket/backend, execute:
-
-bash
-npm install
-Isso criará (ou atualizará) o package-lock.json conforme o seu package.json.
-
-Confirme que lockfileVersion no package-lock.json é ≥ 1 (geralmente gerado pelo npm 8+).
-
-Faça commit e push:
-
-bash
-git add backend/package-lock.json
-git commit -m "chore: adicionar/atualizar package-lock.json"
-git push
-Mantenha no Dockerfile o comando:
-
-text
-RUN npm ci --silent
-Por que?
-npm ci exige um lockfile consistente para instalação determinística das dependências.
-
-2. Alternativa: usar npm install em vez de npm ci
-Se preferir não versionar o package-lock.json, adapte o Dockerfile para usar npm install:
-
-text
-# Stage de build
+# Stage de build: instala dependências e compila o código
 FROM node:18-alpine AS builder
+
+# Instala ferramentas necessárias para compilar dependências nativas
 RUN apk add --no-cache python3 make g++ build-base bash
 
 WORKDIR /app
+
+# Copia apenas os arquivos de dependências
 COPY package.json ./
 
-# Usa npm install em vez de ci
+# ⚠️ Usando npm install no lugar de npm ci
+# Ideal se você NÃO estiver versionando package-lock.json
 RUN npm install --production --silent
 
+# Copia o restante do projeto (src, config, etc.)
 COPY . .
 
+# Compila o código (caso use TypeScript, Babel etc.)
 RUN npm run build
 
 # Stage final: container enxuto para produção
 FROM node:18-alpine
 
-# Instala apenas bash (opcional)
+# (opcional) bash para debug ou uso de scripts
 RUN apk add --no-cache bash
 
 WORKDIR /app
 
-# Copia artefatos do build
+# Copia apenas os arquivos necessários para produção
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
-
-# Expondo porta para o Easypanel
+# Define porta que o app usará (usada no EasyPanel)
 EXPOSE 3100
 
-# Healthcheck opcional
+# Healthcheck (opcional, mas recomendado)
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD wget --quiet --spider http://localhost:3100/health || exit 1
 
-# Comando de inicialização (formato JSON recomendado)
+# Inicializa a aplicação
 CMD ["node", "dist/server.js"]
