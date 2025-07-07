@@ -21,7 +21,20 @@ RUN npm run build
 # Etapa final: imagem leve para produção
 FROM node:18-alpine
 
-RUN apk add --no-cache bash
+# ⚠️ Instala Chromium e dependências do Puppeteer
+RUN apk add --no-cache \
+  chromium \
+  nss \
+  freetype \
+  harfbuzz \
+  ca-certificates \
+  ttf-freefont \
+  bash
+
+# Variáveis de ambiente exigidas pelo Puppeteer
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV NODE_OPTIONS="--no-sandbox"
 
 WORKDIR /app
 
