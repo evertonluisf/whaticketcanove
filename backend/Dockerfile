@@ -1,43 +1,41 @@
-# Stage de build: instala dependências e compila o código
+# Etapa de build
 FROM node:18-alpine AS builder
 
-# Instala ferramentas necessárias para compilar dependências nativas
+# Instala dependências nativas necessárias para compilar alguns pacotes Node
 RUN apk add --no-cache python3 make g++ build-base bash
 
 WORKDIR /app
 
-# Copia apenas os arquivos de dependências
-COPY package.json ./
+# Copia apenas arquivos de dependências
+COPY package.json package-lock.json* ./
 
-# ⚠️ Usando npm install no lugar de npm ci
-# Ideal se você NÃO estiver versionando package-lock.json
-RUN npm install --production --silent
+# Instala TODAS as dependências (incluindo devDependencies como typescript)
+RUN npm install --silent
 
-# Copia o restante do projeto (src, config, etc.)
+# Copia o restante da aplicação
 COPY . .
 
-# Compila o código (caso use TypeScript, Babel etc.)
+# Compila o TypeScript
 RUN npm run build
 
-# Stage final: container enxuto para produção
+# Etapa final: imagem leve para produção
 FROM node:18-alpine
 
-# (opcional) bash para debug ou uso de scripts
 RUN apk add --no-cache bash
 
 WORKDIR /app
 
-# Copia apenas os arquivos necessários para produção
+# Copia apenas arquivos necessários do build
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
-# Define porta que o app usará (usada no EasyPanel)
+# Expõe a porta correta para o Easypanel
 EXPOSE 3100
 
-# Healthcheck (opcional, mas recomendado)
+# Healthcheck (opcional)
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD wget --quiet --spider http://localhost:3100/health || exit 1
 
-# Inicializa a aplicação
+# Inicializa o servidor
 CMD ["node", "dist/server.js"]
