@@ -44,7 +44,7 @@ export const initWbot = async (whatsapp: Whatsapp): Promise<Session> => {
       }
 
       const args = (process.env.CHROME_ARGS || "--no-sandbox --disable-setuid-sandbox").split(" ");
-
+      
       const wbot: Session = new Client({
         session: sessionCfg,
         authStrategy: new LocalAuth({clientId: 'bd_'+whatsapp.id}),
@@ -52,9 +52,10 @@ export const initWbot = async (whatsapp: Whatsapp): Promise<Session> => {
           executablePath: process.env.CHROME_BIN || undefined,
           // @ts-ignore
           browserWSEndpoint: process.env.CHROME_WS || undefined,
-          args: args.split(' ')
+          args // <-- já é um array, não precisa split de novo!
         }
       });
+
 
       wbot.initialize();
 
